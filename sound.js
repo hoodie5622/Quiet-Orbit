@@ -1,16 +1,16 @@
 /* Quiet Orbit: original ambient sound, generated locally with Web Audio. */
 (() => {
   'use strict';
-  // Each landscape has its own harmony, noise colour, register and note rhythm.
+  // Warm, open harmonies with slow swells rather than a melody to follow.
   const profiles = [
-    { frequencies: [65.41, 98, 130.81, 196], levels: [.075, .045, .025, .008], wind: .025, low: 420, high: 30, notes: [392, 523.25, 587.33, 783.99], interval: 6, bell: .018, decay: 4.5, overtone: .1 },
-    { frequencies: [110, 164.81, 220, 329.63], levels: [.025, .02, .012, .004], wind: .17, low: 1800, high: 420, notes: [880, 1108.73, 1318.51], interval: 4.1, bell: .024, decay: 3.4, overtone: .3 },
-    { frequencies: [130.81, 164.81, 196, 261.63], levels: [.04, .025, .025, .004], wind: .014, low: 650, high: 70, notes: [261.63, 329.63, 392, 523.25, 392, 329.63], interval: 2.4, bell: .095, decay: 2.2, overtone: .14 },
-    { frequencies: [43.65, 65.41, 87.31, 130.81], levels: [.1, .055, .022, .018], wind: .13, low: 180, high: 25, notes: [174.61, 130.81], interval: 9.5, bell: .028, decay: 6, overtone: .04 },
-    { frequencies: [73.42, 110, 146.83, 220], levels: [.055, .032, .02, .005], wind: .025, low: 900, high: 110, notes: [293.66, 440, 587.33, 659.25, 587.33, 440, 329.63, 440], interval: 1.35, bell: .065, decay: 2.3, overtone: .24 },
-    { frequencies: [82.41, 123.47, 164.81, 246.94], levels: [.035, .026, .016, .002], wind: .018, low: 1200, high: 300, notes: [659.25, 987.77, 830.61, 1318.51, 987.77], interval: 3.1, bell: .075, decay: 4, overtone: .48 },
-    { frequencies: [146.83, 220, 293.66, 440], levels: [.018, .014, .012, .002], wind: .115, low: 3600, high: 1400, notes: [1174.66, 1760, 1567.98, 2349.32], interval: 4.7, bell: .04, decay: 3.6, overtone: .42 },
-    { frequencies: [98, 146.83, 196, 246.94], levels: [.065, .035, .027, .014], wind: .035, low: 700, high: 40, notes: [392, 493.88, 587.33, 493.88], interval: 3.7, bell: .06, decay: 3.2, overtone: .08 }
+    { frequencies: [130.81,196,261.63,293.66], levels: [.027,.017,.011,.005], wind:.028, low:460, high:65, tone:1000, notes:[329.63,293.66,392,261.63], interval:11, bloom:.024, attack:2.8, release:13, overtone:.04 },
+    { frequencies: [146.83,220,293.66,369.99], levels: [.021,.016,.009,.004], wind:.075, low:680, high:100, tone:1200, notes:[329.63,440,369.99], interval:12, bloom:.018, attack:3, release:13, overtone:.03 },
+    { frequencies: [130.81,174.61,220,261.63], levels: [.025,.021,.013,.006], wind:.022, low:420, high:50, tone:850, notes:[349.23,329.63,261.63], interval:10, bloom:.024, attack:2.6, release:12, overtone:.035 },
+    { frequencies: [98,130.81,196,261.63], levels: [.025,.021,.012,.005], wind:.038, low:230, high:35, tone:700, notes:[196,261.63,293.66], interval:14, bloom:.019, attack:3, release:14, overtone:.02 },
+    { frequencies: [110,146.83,196,246.94], levels: [.021,.021,.013,.007], wind:.03, low:520, high:90, tone:1000, notes:[293.66,329.63,392,329.63], interval:9, bloom:.022, attack:2.5, release:12, overtone:.04 },
+    { frequencies: [123.47,164.81,246.94,293.66], levels: [.022,.018,.012,.006], wind:.025, low:560, high:110, tone:1100, notes:[329.63,369.99,293.66], interval:11, bloom:.021, attack:2.8, release:13, overtone:.055 },
+    { frequencies: [146.83,220,277.18,329.63], levels: [.019,.015,.009,.005], wind:.06, low:850, high:150, tone:1250, notes:[440,369.99,329.63], interval:13, bloom:.017, attack:3, release:14, overtone:.025 },
+    { frequencies: [130.81,164.81,196,261.63], levels: [.026,.021,.015,.007], wind:.028, low:390, high:55, tone:900, notes:[329.63,392], interval:10.5, bloom:.023, attack:2.7, release:12, overtone:.03 }
   ];
 
   function ramp(param, value, now, duration = 2.8) {
@@ -45,32 +45,68 @@
       this.master = this.node(ctx.createGain());
       this.master.gain.value = 0;
       const limiter = this.node(ctx.createDynamicsCompressor());
-      limiter.threshold.value = -18;
+      limiter.threshold.value = -20;
       limiter.knee.value = 20;
-      limiter.ratio.value = 4;
+      limiter.ratio.value = 3;
       limiter.attack.value = .03;
       limiter.release.value = .7;
       this.master.connect(limiter).connect(ctx.destination);
 
-      // A fixed graph morphs between worlds; scene changes never add voices.
-      this.drones = Array.from({ length: 4 }, (_, i) => {
+      this.tone = this.node(ctx.createBiquadFilter());
+      this.tone.type = 'lowpass';
+      this.tone.frequency.value = profiles[0].tone;
+      this.tone.Q.value = .5;
+      const dry = this.node(ctx.createGain());
+      dry.gain.value = .82;
+      this.tone.connect(dry).connect(this.master);
+
+      // One quiet stereo room gives every voice a soft tail, with no feedback loop.
+      const reverb = this.node(ctx.createConvolver());
+      const impulse = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 4.8), ctx.sampleRate);
+      for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
+        const samples = impulse.getChannelData(channel);
+        let smooth = 0;
+        for (let i = 0; i < samples.length; i++) {
+          smooth += .1 * (Math.random() * 2 - 1 - smooth);
+          samples[i] = smooth * Math.min(1, i / (ctx.sampleRate * .025)) * (1 - i / samples.length) ** 2.8;
+        }
+      }
+      reverb.buffer = impulse;
+      const wet = this.node(ctx.createGain());
+      wet.gain.value = .46;
+      this.tone.connect(reverb).connect(wet).connect(this.master);
+
+      const breaths = [.017,.023,.031].map(frequency => {
+        const lfo = this.source(ctx.createOscillator());
+        lfo.frequency.value = frequency;
+        return lfo;
+      });
+      // Fixed pitches crossfade in level. Rapid world changes cannot create pitch slides.
+      const pitches = [...new Set(profiles.flatMap(profile => profile.frequencies))];
+      this.drones = pitches.map((frequency, i) => {
         const oscillator = this.source(ctx.createOscillator());
-        oscillator.type = i === 3 ? 'triangle' : 'sine';
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
         const gain = this.node(ctx.createGain());
         gain.gain.value = 0;
-        oscillator.connect(gain).connect(this.master);
-        const lfo = this.source(ctx.createOscillator());
-        lfo.frequency.value = .035 + i * .013;
+        const pan = this.node(ctx.createStereoPanner());
+        pan.pan.value = [-.38,.32,-.16,.2][i % 4];
+        oscillator.connect(gain).connect(pan).connect(this.tone);
         const depth = this.node(ctx.createGain());
         depth.gain.value = 0;
-        lfo.connect(depth).connect(gain.gain);
-        return { oscillator, gain, depth };
+        breaths[i % breaths.length].connect(depth).connect(gain.gain);
+        return { frequency, oscillator, gain, depth };
       });
 
-      const noise = ctx.createBuffer(2, ctx.sampleRate * 4, ctx.sampleRate);
+      const noise = ctx.createBuffer(2, ctx.sampleRate * 6, ctx.sampleRate);
       for (let channel = 0; channel < noise.numberOfChannels; channel++) {
         const samples = noise.getChannelData(channel);
-        for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+        let smooth = 0;
+        for (let i = 0; i < samples.length; i++) {
+          smooth += .045 * (Math.random() * 2 - 1 - smooth);
+          const edge = Math.min(1, i / (ctx.sampleRate * .2), (samples.length - 1 - i) / (ctx.sampleRate * .2));
+          samples[i] = smooth * edge;
+        }
       }
       const windSource = this.source(ctx.createBufferSource());
       windSource.buffer = noise;
@@ -83,15 +119,14 @@
       this.windLow.Q.value = .5;
       this.windGain = this.node(ctx.createGain());
       this.windGain.gain.value = 0;
-      windSource.connect(this.windHigh).connect(this.windLow).connect(this.windGain).connect(this.master);
+      windSource.connect(this.windHigh).connect(this.windLow).connect(this.windGain).connect(this.tone);
 
-      this.bellGain = this.node(ctx.createGain());
-      this.bellGain.gain.value = 1;
-      this.bellGain.connect(this.master);
-      this.bells = Array.from({ length: 3 }, () => {
+      this.blooms = Array.from({ length: 3 }, (_, i) => {
         const envelope = this.node(ctx.createGain());
         envelope.gain.value = 0;
-        envelope.connect(this.bellGain);
+        const pan = this.node(ctx.createStereoPanner());
+        pan.pan.value = [-.45,0,.45][i];
+        envelope.connect(pan).connect(this.tone);
         const fundamental = this.source(ctx.createOscillator());
         const harmonic = this.source(ctx.createOscillator());
         const harmonicGain = this.node(ctx.createGain());
@@ -113,17 +148,19 @@
       index = Number(index);
       this.sceneIndex = Number.isFinite(index) ? ((Math.trunc(index) % profiles.length) + profiles.length) % profiles.length : 0;
       const profile = profiles[this.sceneIndex], now = this.ctx.currentTime;
-      this.drones.forEach((voice, i) => {
-        ramp(voice.oscillator.frequency, profile.frequencies[i], now);
-        ramp(voice.gain.gain, profile.levels[i], now);
-        ramp(voice.depth.gain, profile.levels[i] * .12, now);
+      this.drones.forEach(voice => {
+        const i = profile.frequencies.indexOf(voice.frequency);
+        const level = i < 0 ? 0 : profile.levels[i];
+        ramp(voice.gain.gain, level, now);
+        ramp(voice.depth.gain, level * .16, now);
       });
+      ramp(this.tone.frequency, profile.tone, now);
       ramp(this.windGain.gain, profile.wind, now);
       ramp(this.windLow.frequency, profile.low, now);
       ramp(this.windHigh.frequency, profile.high, now);
-      this.bells.forEach(voice => ramp(voice.envelope.gain, 0, now, 2));
+      this.blooms.forEach(voice => ramp(voice.envelope.gain, 0, now, 2.8));
       this.noteIndex = 0;
-      this.nextNote = now + 2.1;
+      this.nextNote = now + 3.6;
     }
 
     setVolume(value) {
@@ -156,15 +193,15 @@
           if (!this.active && this.ctx.state === 'running') await this.ctx.suspend();
           return;
         }
-        ramp(this.master.gain, this.volume, this.ctx.currentTime, .4);
+        ramp(this.master.gain, this.volume, this.ctx.currentTime, this.timer ? .4 : 1.8);
         if (!this.timer) {
-          this.nextNote = this.ctx.currentTime + 1;
+          this.nextNote = this.ctx.currentTime + 3.6;
           this.timer = setInterval(() => this.tick(), 200);
         }
       } else {
         clearInterval(this.timer);
         this.timer = null;
-        ramp(this.master.gain, 0, this.ctx.currentTime, .3);
+        ramp(this.master.gain, 0, this.ctx.currentTime, .75);
         if (this.ctx.state !== 'suspended' && this.ctx.state !== 'closed') {
           this.suspendTimer = setTimeout(() => {
             this.suspendTimer = null;
@@ -173,7 +210,7 @@
                 if (this.active) return this.syncActivity();
               }).catch(() => {});
             }
-          }, 400);
+          }, 850);
         }
       }
     }
@@ -183,18 +220,18 @@
       const now = this.ctx.currentTime;
       if (now < this.nextNote) return;
       const profile = profiles[this.sceneIndex];
-      const voice = this.bells[this.slotIndex++ % this.bells.length];
+      const voice = this.blooms[this.slotIndex++ % this.blooms.length];
       const frequency = profile.notes[this.noteIndex++ % profile.notes.length];
       const start = now + .04;
-      // Fade a reused voice before retuning, including after a quick scene change.
+      // Three fixed voices leave enough time for a whole swell before reuse.
       ramp(voice.envelope.gain, 0, now, .03);
       voice.fundamental.frequency.setValueAtTime(frequency, start);
-      voice.harmonic.frequency.setValueAtTime(frequency * 2.004, start);
+      voice.harmonic.frequency.setValueAtTime(frequency * 2.002, start);
       voice.harmonicGain.gain.setValueAtTime(profile.overtone, start);
       voice.envelope.gain.setValueAtTime(0, start);
-      voice.envelope.gain.linearRampToValueAtTime(profile.bell, start + .09);
-      voice.envelope.gain.exponentialRampToValueAtTime(.0001, start + profile.decay);
-      voice.envelope.gain.linearRampToValueAtTime(0, start + profile.decay + .1);
+      voice.envelope.gain.linearRampToValueAtTime(profile.bloom, start + profile.attack);
+      voice.envelope.gain.exponentialRampToValueAtTime(.0001, start + profile.attack + profile.release);
+      voice.envelope.gain.linearRampToValueAtTime(0, start + profile.attack + profile.release + .2);
       this.nextNote = now + profile.interval;
     }
 

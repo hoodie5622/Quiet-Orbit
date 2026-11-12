@@ -7,8 +7,14 @@
   let lastTouch = 0, touchX = 0, touchY = 0;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let motionReduced = reducedMotion.matches;
+  let motionPreference = null;
   let volume = .35;
   try {
+    const savedMotion = localStorage.getItem('quiet-orbit-motion');
+    if(savedMotion === 'full' || savedMotion === 'reduced') {
+      motionPreference = savedMotion;
+      motionReduced = savedMotion === 'reduced';
+    }
     const saved = localStorage.getItem('quiet-orbit-volume');
     if(saved !== null && Number.isFinite(Number(saved))) volume = Math.max(0, Math.min(1, Number(saved)));
   } catch {}
@@ -54,20 +60,23 @@
   engine.setReducedMotion(motionReduced);
   syncScene(0);
   function updateStatus() {
-    $('status-label').textContent = paused ? '이 순간에, 잠시 머무는 중' : motionReduced ? '잔잔한 별빛 · 움직임 켜기' : '천천히, 자동 항해 중';
+    $('status-label').textContent = paused ? '이 순간에, 잠시 머무는 중' : motionReduced ? '자동 항해 중 · 움직임 켜기' : '무작위로, 자동 항해 중';
     $('motion').setAttribute('aria-pressed', String(motionReduced));
     $('motion').setAttribute('aria-label', motionReduced ? '우주 움직임 켜기' : '우주 움직임 줄이기');
-    $('motion').title = motionReduced ? '마우스 반응과 자동 항해 켜기' : '움직임을 줄여 편하게 바라보기';
+    $('motion').title = motionReduced ? '별자리 연결과 우주 움직임 켜기' : '자동 항해는 유지하며 움직임 줄이기';
     $('journey-progress').style.width = '0%';
   }
   updateStatus();
   reducedMotion.addEventListener('change', e => {
+    if(motionPreference !== null) return;
     motionReduced = e.matches;
     engine.setReducedMotion(motionReduced);
     updateStatus();
   });
   $('motion').addEventListener('click', () => {
     motionReduced = !motionReduced;
+    motionPreference = motionReduced ? 'reduced' : 'full';
+    try { localStorage.setItem('quiet-orbit-motion', motionPreference); } catch {}
     engine.setReducedMotion(motionReduced);
     engine.lastInteraction = performance.now();
     updateStatus();
@@ -173,8 +182,7 @@
   });
   document.addEventListener('visibilitychange', () => audio?.setVisible(!document.hidden));
   setInterval(() => {
-    if(document.hidden || paused || motionReduced) return;
-    const elapsed = performance.now() - engine.lastInteraction;
-    $('journey-progress').style.width = Math.min(100, elapsed / engine.sceneDuration * 100) + '%';
+    if(document.hidden || paused) return;
+    $('journey-progress').style.width = Math.min(100, engine.sceneElapsed / engine.sceneDuration * 100) + '%';
   }, 500);
 })();
