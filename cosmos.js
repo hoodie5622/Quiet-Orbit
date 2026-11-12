@@ -51,21 +51,47 @@
       points: [[.25,.05,1.45],[.69,.1,1.65],[.28,.33,1.05],[.63,.39,1.1],[.2,.65,.9],[.56,.69,1.05],[.02,.92,1.05],[.38,.96,1.05],[.55,.94,.95],[.89,.87,1.1],[.05,.4,.8],[.9,.46,.85]],
       edges: [[0,2],[1,3],[2,3],[2,4],[3,5],[4,6],[4,7],[5,8],[5,9],[2,10],[3,11]] }
   ];
-  const CONSTELLATION_DELAY = .5;
-  const CONSTELLATION_STAR_RISE = .3;
-  const CONSTELLATION_TRACE = 6.4;
-  const CONSTELLATION_FINISH = CONSTELLATION_DELAY + CONSTELLATION_STAR_RISE + CONSTELLATION_TRACE;
-  const CONSTELLATION_DURATION = CONSTELLATION_FINISH + .5;
+  const CONSTELLATION_DURATION = 26;
+  const STAR_TINTS = ['184,216,255', '231,226,255', '194,235,247', '255,222,187'];
   for (const figure of constellations) {
-    const step = CONSTELLATION_TRACE / figure.edges.length;
-    figure.arrivals = new Float32Array(figure.points.length);
-    figure.arrivals.fill(Infinity);
-    figure.arrivals[figure.edges[0][0]] = 0;
-    figure.edges.forEach(([a, b], i) => {
-      const start = CONSTELLATION_STAR_RISE + i * step;
-      figure.arrivals[a] = Math.min(figure.arrivals[a], Math.max(0, start - .15));
-      figure.arrivals[b] = Math.min(figure.arrivals[b], start + step);
+    const neighbors = figure.points.map(() => []), visited = new Set(), walk = [];
+    figure.edges.forEach(([a, b], edge) => {
+      neighbors[a].push({ next: b, edge });
+      neighbors[b].push({ next: a, edge });
     });
+    // Every edge is walked out and back, including branches and cycles, so the loop is closed.
+    function visit(a) {
+      for (const { next: b, edge } of neighbors[a]) {
+        if (visited.has(edge)) continue;
+        visited.add(edge);
+        walk.push([a, b]); visit(b); walk.push([b, a]);
+      }
+    }
+    visit(figure.edges[0][0]);
+    let distance = 0;
+    figure.route = walk.map(([a, b]) => {
+      const length = Math.hypot((figure.points[b][0] - figure.points[a][0]) * figure.aspect, figure.points[b][1] - figure.points[a][1]);
+      const segment = { a, b, start: distance, length };
+      distance += length;
+      return segment;
+    });
+    figure.routeLength = distance;
+  }
+
+  function sampleRoute(figure, phase, out) {
+    const distance = (phase - Math.floor(phase)) * figure.routeLength;
+    let index = figure.route.length - 1;
+    for (let i = 0; i < figure.route.length; i++) {
+      if (distance < figure.route[i].start + figure.route[i].length) { index = i; break; }
+    }
+    const segment = figure.route[index];
+    const t = clamp((distance - segment.start) / segment.length, 0, 1);
+    out.x = lerp(figure.points[segment.a][0], figure.points[segment.b][0], t);
+    out.y = lerp(figure.points[segment.a][1], figure.points[segment.b][1], t);
+    out.a = segment.a; out.b = segment.b; out.t = t; out.segment = index;
+    out.distance = distance; out.totalLength = figure.routeLength;
+    out.remaining = segment.length * (1 - t);
+    return out;
   }
 
   function random(seed) {
@@ -306,8 +332,8 @@
       this.constellationFrom[0] = 1;
       this.constellationDuration = CONSTELLATION_DURATION;
       this.constellationElapsed = new Float32Array(palettes.length);
-      this.constellationElapsed.fill(CONSTELLATION_DURATION);
-      if (!this.reducedMotion) this.constellationElapsed[0] = 0;
+      this.constellationHead = {};
+      this.constellationTail = {};
       this.textures = new Map();
       this.background = this.getTexture(0);
       this.oldBackground = null;
@@ -414,7 +440,7 @@
       }
       this.background = this.getTexture(index);
       this.sceneIndex = index;
-      this.constellationElapsed[index] = this.reducedMotion || this.paused ? CONSTELLATION_DURATION : 0;
+      this.constellationElapsed[index] = 0;
       this.transition = this.paused ? 1 : 0;
       this.meteors.length = 0;
       this.onSceneChange?.(index);
@@ -426,9 +452,14 @@
       if (this.destroyed) return;
       this.lastInteraction = performance.now();
       this.sceneElapsed = 0;
-      this.constellationElapsed[this.sceneIndex] = this.reducedMotion || this.paused ? CONSTELLATION_DURATION : 0;
+      this.constellationElapsed[this.sceneIndex] = 0;
       this.draw();
       this.requestFrame();
+    }
+
+    sampleConstellation(index, phase) {
+      const figure = constellations[index] || constellations[this.sceneIndex];
+      return sampleRoute(figure, Number.isFinite(phase) ? phase : 0, {});
     }
 
     nextRandomScene() {
@@ -461,7 +492,6 @@
       this.reducedMotion = Boolean(value);
       if (this.reducedMotion) {
         this.transition = 1;
-        this.constellationElapsed.fill(CONSTELLATION_DURATION);
         this.meteors.length = 0;
         this.bursts.length = 0;
       } else if (wasReduced) {
@@ -494,7 +524,7 @@
       this.time += dt;
       this.sceneElapsed += dt * 1000;
       if (!this.reducedMotion) {
-        this.constellationElapsed[this.sceneIndex] = Math.min(CONSTELLATION_DURATION, this.constellationElapsed[this.sceneIndex] + dt);
+        this.constellationElapsed[this.sceneIndex] = (this.constellationElapsed[this.sceneIndex] + dt) % CONSTELLATION_DURATION;
       }
       this.transition = Math.min(1, this.transition + dt / 3.5);
       const smoothing = 1 - Math.exp(-dt * 2.4);
@@ -603,12 +633,6 @@
         cx = clamp(cx, width / 2 + 14, w - width / 2 - 14);
         const left = cx - width / 2, top = cy - height / 2;
         const color = palettes[index].light.join(',');
-        const elapsed = this.constellationElapsed[index];
-        const drawing = elapsed - CONSTELLATION_DELAY - CONSTELLATION_STAR_RISE;
-        const step = CONSTELLATION_TRACE / figure.edges.length;
-        const finishAge = elapsed - CONSTELLATION_FINISH;
-        const finishPulse = finishAge > 0 && finishAge < .5 ? Math.sin(finishAge / .5 * Math.PI) : 0;
-        let tipX = 0, tipY = 0, tipGlow = 0;
         ctx.save();
         ctx.translate(w * .5 + this.worldX, h * .5 + this.worldY);
         ctx.rotate(this.worldAngle);
@@ -616,64 +640,84 @@
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = opacity;
         ctx.beginPath();
-        for (let i = 0; i < figure.edges.length; i++) {
-          const [a, b] = figure.edges[i];
-          const progress = ease(clamp(drawing / step - i, 0, 1));
-          if (progress <= 0) continue;
+        for (const [a, b] of figure.edges) {
           const ax = left + figure.points[a][0] * width, ay = top + figure.points[a][1] * height;
           const bx = left + figure.points[b][0] * width, by = top + figure.points[b][1] * height;
-          const x = lerp(ax, bx, progress), y = lerp(ay, by, progress);
           ctx.moveTo(ax, ay);
-          ctx.lineTo(x, y);
-          if (progress < 1) {
-            tipX = x; tipY = y;
-            tipGlow = Math.sin(progress * Math.PI) ** .35;
-          }
+          ctx.lineTo(bx, by);
         }
-        ctx.strokeStyle = 'rgba(2,5,17,.62)';
-        ctx.lineWidth = mobile ? 2.8 : 3.2;
+        ctx.strokeStyle = 'rgba(2,5,17,.45)';
+        ctx.lineWidth = mobile ? 1.8 : 2;
         ctx.stroke();
-        ctx.strokeStyle = `rgba(${color},${.74 + finishPulse * .05})`;
-        ctx.lineWidth = mobile ? 1.15 : 1.3;
-        ctx.shadowColor = `rgba(${color},.3)`; ctx.shadowBlur = 3;
+        ctx.strokeStyle = `rgba(${color},.7)`;
+        ctx.lineWidth = mobile ? .85 : .95;
+        ctx.shadowColor = `rgba(${color},.22)`; ctx.shadowBlur = 3;
         ctx.stroke();
         ctx.shadowBlur = 0;
         for (let i = 0; i < figure.points.length; i++) {
           const [u, v, strength] = figure.points[i];
           const x = left + u * width, y = top + v * height;
-          const arrivalAge = elapsed - CONSTELLATION_DELAY - figure.arrivals[i];
-          const visibility = .06 + ease(clamp(arrivalAge / .35, 0, 1)) * .94;
-          const arrivalPulse = arrivalAge > 0 && arrivalAge < .9 ? Math.sin(arrivalAge / .9 * Math.PI) : 0;
-          const pulse = arrivalPulse * .17 + finishPulse * .12;
-          ctx.globalAlpha = opacity * visibility;
-          const shimmer = .92 + Math.sin(this.time * .55 + i * 1.7) * .08;
-          const radius = (mobile ? 2.1 : 2.6) * strength * (1 + pulse * .18);
-          const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 8);
-          halo.addColorStop(0, `rgba(${color},${Math.min(.99, .94 * shimmer + pulse * .2)})`);
-          halo.addColorStop(.16, `rgba(${color},${.44 * shimmer})`);
-          halo.addColorStop(.42, `rgba(${color},${.12 * shimmer})`);
-          halo.addColorStop(1, `rgba(${color},0)`);
+          const shimmer = .94 + Math.sin(this.time * .44 + i * 1.7) * .06;
+          const tint = STAR_TINTS[index === 0 && i === 0 ? 3 : (i + index * 2) % STAR_TINTS.length];
+          const scale = Math.sqrt(strength);
+          const radius = (mobile ? 14 : 20) * scale;
+          ctx.globalAlpha = opacity;
+          const halo = ctx.createRadialGradient(x, y, 0, x, y, radius);
+          halo.addColorStop(0, `rgba(${tint},${.48 * shimmer})`);
+          halo.addColorStop(.16, `rgba(${tint},${.21 * shimmer})`);
+          halo.addColorStop(.48, `rgba(${tint},${.045 * shimmer})`);
+          halo.addColorStop(1, `rgba(${tint},0)`);
           ctx.fillStyle = halo;
-          ctx.fillRect(x - radius * 8, y - radius * 8, radius * 16, radius * 16);
-          ctx.fillStyle = `rgba(250,251,255,${.96 + shimmer * .04})`;
-          ctx.beginPath(); ctx.arc(x, y, radius * .8, 0, TAU); ctx.fill();
-          if (strength >= 1.05) {
-            ctx.strokeStyle = `rgba(${color},.72)`; ctx.lineWidth = .75;
-            ctx.beginPath(); ctx.moveTo(x - radius * 3.4, y); ctx.lineTo(x + radius * 3.4, y);
-            ctx.moveTo(x, y - radius * 3.4); ctx.lineTo(x, y + radius * 3.4); ctx.stroke();
+          ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+          const coronaRadius = (mobile ? 4.5 : 6) * scale;
+          const corona = ctx.createRadialGradient(x, y, 0, x, y, coronaRadius);
+          corona.addColorStop(0, 'rgba(253,253,255,.9)');
+          corona.addColorStop(.2, `rgba(${tint},${.65 * shimmer})`);
+          corona.addColorStop(.65, `rgba(${tint},.08)`);
+          corona.addColorStop(1, `rgba(${tint},0)`);
+          ctx.fillStyle = corona;
+          ctx.fillRect(x - coronaRadius, y - coronaRadius, coronaRadius * 2, coronaRadius * 2);
+          ctx.fillStyle = `rgba(252,253,255,${.94 + shimmer * .05})`;
+          ctx.beginPath(); ctx.arc(x, y, (mobile ? 1 : 1.25) * scale, 0, TAU); ctx.fill();
+          if (strength >= 1.2) {
+            const arm = (mobile ? 5.4 : 7.5) * scale;
+            ctx.strokeStyle = `rgba(${tint},.37)`; ctx.lineWidth = .5;
+            ctx.beginPath(); ctx.moveTo(x - arm, y); ctx.lineTo(x + arm, y);
+            ctx.moveTo(x, y - arm); ctx.lineTo(x, y + arm); ctx.stroke();
           }
         }
-        if (tipGlow > 0) {
-          ctx.globalAlpha = opacity * tipGlow * .82;
-          const radius = mobile ? 13 : 17;
-          const tip = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, radius);
-          tip.addColorStop(0, 'rgba(250,252,255,.95)');
-          tip.addColorStop(.17, `rgba(${color},.55)`);
+        if (index === this.sceneIndex && !this.reducedMotion) {
+          const head = sampleRoute(figure, this.constellationElapsed[index] / CONSTELLATION_DURATION, this.constellationHead);
+          const headX = left + head.x * width, headY = top + head.y * height;
+          const end = head.distance, tailLength = figure.routeLength * .024;
+          let cursor = end - tailLength;
+          ctx.globalAlpha = opacity;
+          ctx.beginPath();
+          while (cursor < end - 1e-9) {
+            const sample = sampleRoute(figure, cursor / figure.routeLength, this.constellationTail);
+            const segment = figure.route[sample.segment];
+            const advance = Math.min(end - cursor, sample.remaining);
+            if (advance < 1e-9) { cursor += 1e-8; continue; }
+            const t = clamp(sample.t + advance / segment.length, 0, 1);
+            const x = lerp(figure.points[segment.a][0], figure.points[segment.b][0], t);
+            const y = lerp(figure.points[segment.a][1], figure.points[segment.b][1], t);
+            ctx.moveTo(left + sample.x * width, top + sample.y * height);
+            ctx.lineTo(left + x * width, top + y * height);
+            cursor += advance;
+          }
+          ctx.strokeStyle = 'rgba(228,242,255,.14)'; ctx.lineWidth = mobile ? 1.25 : 1.5;
+          ctx.lineCap = 'round'; ctx.shadowColor = `rgba(${color},.25)`; ctx.shadowBlur = 4;
+          ctx.stroke(); ctx.shadowBlur = 0;
+          const radius = mobile ? 16 : 22;
+          const tip = ctx.createRadialGradient(headX, headY, 0, headX, headY, radius);
+          tip.addColorStop(0, 'rgba(250,252,255,.98)');
+          tip.addColorStop(.12, 'rgba(223,242,255,.8)');
+          tip.addColorStop(.36, `rgba(${color},.22)`);
           tip.addColorStop(1, `rgba(${color},0)`);
           ctx.fillStyle = tip;
-          ctx.fillRect(tipX - radius, tipY - radius, radius * 2, radius * 2);
+          ctx.fillRect(headX - radius, headY - radius, radius * 2, radius * 2);
           ctx.fillStyle = '#f8fbff';
-          ctx.beginPath(); ctx.arc(tipX, tipY, mobile ? 1.5 : 1.8, 0, TAU); ctx.fill();
+          ctx.beginPath(); ctx.arc(headX, headY, mobile ? 1.8 : 2.15, 0, TAU); ctx.fill();
         }
         ctx.restore();
       }

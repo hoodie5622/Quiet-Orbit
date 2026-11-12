@@ -63,7 +63,7 @@
     $('status-label').textContent = paused ? '이 순간에, 잠시 머무는 중' : motionReduced ? '자동 항해 중 · 움직임 켜기' : '무작위로, 자동 항해 중';
     $('motion').setAttribute('aria-pressed', String(motionReduced));
     $('motion').setAttribute('aria-label', motionReduced ? '우주 움직임 켜기' : '우주 움직임 줄이기');
-    $('motion').title = motionReduced ? '별자리 연결과 우주 움직임 켜기' : '자동 항해는 유지하며 움직임 줄이기';
+    $('motion').title = motionReduced ? '별빛 순환과 우주 움직임 켜기' : '자동 항해는 유지하며 움직임 줄이기';
     $('journey-progress').style.width = '0%';
   }
   updateStatus();
