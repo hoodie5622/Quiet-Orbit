@@ -26,28 +26,28 @@
   // https://spdf.gsfc.nasa.gov/pub/documents/archived_websites/pwg.gsfc.nasa.gov/stargaze/Spolaris.htm
   // Andromeda: https://science.nasa.gov/asset/hubble/andromeda-constellation/
   const constellations = [
-    { name: '오리온자리', latin: 'ORION', aspect: .85,
+    { aspect: .85, anchor: [.83, .34], mobileX: .59, // Orion
       points: [[.28,.17,1.5],[.72,.23,1.25],[.4,.49,1.05],[.5,.46,1.1],[.6,.43,1.05],[.3,.91,1.2],[.78,.86,1.55],[.49,.03,.8],[.07,.1,.75],[.04,.34,.7]],
       edges: [[0,7],[7,1],[0,2],[2,3],[3,4],[4,1],[2,5],[4,6],[5,6],[0,8],[8,9]] },
-    { name: '백조자리', latin: 'CYGNUS', aspect: 1.15,
+    { aspect: 1.15, anchor: [.18, .31], mobileX: .39, // Cygnus
       points: [[.48,.04,1.55],[.5,.4,1.3],[.59,.93,1.15],[.06,.53,1],[.29,.46,.9],[.74,.28,1],[.96,.16,.95]],
       edges: [[0,1],[1,2],[3,4],[4,1],[1,5],[5,6]] },
-    { name: '거문고자리', latin: 'LYRA', aspect: .85,
+    { aspect: .85, anchor: [.83, .4], mobileX: .6, // Lyra
       points: [[.18,.06,1.75],[.56,.17,.8],[.36,.34,1],[.87,.46,1.1],[.72,.91,1.15],[.21,.78,1.05]],
       edges: [[0,1],[1,2],[2,0],[2,3],[3,4],[4,5],[5,2]] },
-    { name: '사자자리', latin: 'LEO', aspect: 1.5,
+    { aspect: 1.5, anchor: [.18, .36], mobileX: .29, // Leo, opposite the eclipse
       points: [[.83,.18,1],[.66,.04,.85],[.5,.16,1.05],[.51,.37,.95],[.68,.53,1.05],[.66,.89,1.65],[.04,.72,1.2],[.25,.39,1.1]],
       edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,3],[7,5]] },
-    { name: '안드로메다자리', latin: 'ANDROMEDA', aspect: 1.65,
+    { aspect: 1.65, anchor: [.18, .4], mobileX: .41, // Andromeda
       points: [[.04,.88,1.3],[.29,.66,.85],[.55,.48,1.45],[.94,.18,1.4],[.55,.25,.9],[.46,.04,.75],[.29,.9,.75],[.57,.82,.8]],
       edges: [[0,1],[1,2],[2,3],[2,4],[4,5],[1,6],[6,7]] },
-    { name: '카시오페이아자리', latin: 'CASSIOPEIA', aspect: 1.9,
+    { aspect: 1.9, anchor: [.18, .28], mobileX: .36, // Cassiopeia
       points: [[.02,.12,1.1],[.24,.85,1.35],[.5,.32,1.5],[.75,.79,1.15],[.98,.05,1.05]],
       edges: [[0,1],[1,2],[2,3],[3,4]] },
-    { name: '작은곰자리', latin: 'URSA MINOR', aspect: 1.5,
+    { aspect: 1.5, anchor: [.83, .34], mobileX: .6, // Ursa Minor
       points: [[.02,.03,1.6],[.25,.18,.9],[.48,.28,.9],[.68,.42,1.1],[.93,.4,1.2],[.98,.82,1.4],[.71,.92,1.15]],
       edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]] },
-    { name: '쌍둥이자리', latin: 'GEMINI', aspect: 1.12,
+    { aspect: 1.12, anchor: [.18, .36], mobileX: .4, // Gemini
       points: [[.25,.05,1.45],[.69,.1,1.65],[.28,.33,1.05],[.63,.39,1.1],[.2,.65,.9],[.56,.69,1.05],[.02,.92,1.05],[.38,.96,1.05],[.55,.94,.95],[.89,.87,1.1],[.05,.4,.8],[.9,.46,.85]],
       edges: [[0,2],[1,3],[2,3],[2,4],[3,5],[4,6],[4,7],[5,8],[5,9],[2,10],[3,11]] }
   ];
@@ -524,67 +524,68 @@
       const ctx = this.ctx, w = this.width, h = this.height;
       const mobile = w <= 700;
       const immersed = document.body?.classList.contains('immersed');
-      let cx = w * .82, cy = h * .235;
-      let maxWidth = Math.min(220, w * .18), maxHeight = Math.min(178, h * .22);
-      if (mobile) {
-        cx = w * .5;
-        cy = h >= 760 ? clamp(h * .175, 146, 163) : 108;
-        maxWidth = Math.min(190, w * .52);
-        maxHeight = h >= 760 ? 80 : 56;
-      }
-      if (immersed) {
-        cx = w * (mobile ? .5 : .76); cy = h * .38;
-        maxWidth = Math.min(mobile ? 270 : 370, w * .65);
-        maxHeight = Math.min(290, h * .32);
-      }
       const motion = this.reducedMotion ? 0 : 1;
-      cx -= this.pointer.x * 6 * motion;
-      cy -= this.pointer.y * 4 * motion;
       const blend = ease(this.transition);
       for (let index = 0; index < constellations.length; index++) {
         const opacity = this.constellationFrom[index] * (1 - blend) + (index === this.sceneIndex ? blend : 0);
         if (opacity < .003) continue;
         const figure = constellations[index];
+        let cx = w * figure.anchor[0], cy = h * figure.anchor[1];
+        let maxWidth = Math.min(350, w * .27), maxHeight = Math.min(270, h * .39);
+        if (mobile) {
+          cx = w * figure.mobileX;
+          cy = h >= 760 ? 157.5 : 130;
+          maxWidth = Math.min(index === 3 ? 190 : 250, w * .6);
+          maxHeight = h >= 760 ? 135 : 100;
+          if (h < 600) { cy = 119; maxHeight = 78; }
+        }
+        if (immersed) {
+          cx = w * (mobile ? figure.mobileX : figure.anchor[0] < .5 ? .24 : .77);
+          cy = h * (mobile ? .38 : figure.anchor[1] + .08);
+          maxWidth = mobile ? Math.min(index === 3 ? 234 : 310, w * .78) : Math.min(500, w * .41);
+          maxHeight = Math.min(mobile ? 250 : 380, h * .48);
+        }
         const height = Math.min(maxHeight, maxWidth / figure.aspect), width = height * figure.aspect;
+        cx = clamp(cx, width / 2 + 14, w - width / 2 - 14) - this.pointer.x * 5 * motion;
+        cy -= this.pointer.y * 3 * motion;
         const left = cx - width / 2, top = cy - height / 2;
         const color = palettes[index].light.join(',');
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = opacity;
-        ctx.strokeStyle = `rgba(${color},.39)`;
-        ctx.lineWidth = mobile ? .7 : .85;
         ctx.beginPath();
         for (const [a, b] of figure.edges) {
           ctx.moveTo(left + figure.points[a][0] * width, top + figure.points[a][1] * height);
           ctx.lineTo(left + figure.points[b][0] * width, top + figure.points[b][1] * height);
         }
+        ctx.strokeStyle = 'rgba(2,5,17,.62)';
+        ctx.lineWidth = mobile ? 2.8 : 3.2;
         ctx.stroke();
+        ctx.strokeStyle = `rgba(${color},.74)`;
+        ctx.lineWidth = mobile ? 1.15 : 1.3;
+        ctx.shadowColor = `rgba(${color},.3)`; ctx.shadowBlur = 3;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
         for (let i = 0; i < figure.points.length; i++) {
           const [u, v, strength] = figure.points[i];
           const x = left + u * width, y = top + v * height;
-          const shimmer = .85 + Math.sin(this.time * .55 + i * 1.7) * .15;
-          const radius = (mobile ? 1.35 : 1.7) * strength;
-          const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 6);
-          halo.addColorStop(0, `rgba(${color},${.65 * shimmer})`);
-          halo.addColorStop(.2, `rgba(${color},${.2 * shimmer})`);
+          const shimmer = .92 + Math.sin(this.time * .55 + i * 1.7) * .08;
+          const radius = (mobile ? 2.1 : 2.6) * strength;
+          const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 8);
+          halo.addColorStop(0, `rgba(${color},${.94 * shimmer})`);
+          halo.addColorStop(.16, `rgba(${color},${.44 * shimmer})`);
+          halo.addColorStop(.42, `rgba(${color},${.12 * shimmer})`);
           halo.addColorStop(1, `rgba(${color},0)`);
           ctx.fillStyle = halo;
-          ctx.fillRect(x - radius * 6, y - radius * 6, radius * 12, radius * 12);
-          ctx.fillStyle = `rgba(244,246,255,${.82 + shimmer * .18})`;
-          ctx.beginPath(); ctx.arc(x, y, radius * .66, 0, TAU); ctx.fill();
-          if (strength >= 1.4) {
-            ctx.strokeStyle = `rgba(${color},.5)`; ctx.lineWidth = .55;
-            ctx.beginPath(); ctx.moveTo(x - radius * 2.9, y); ctx.lineTo(x + radius * 2.9, y);
-            ctx.moveTo(x, y - radius * 2.9); ctx.lineTo(x, y + radius * 2.9); ctx.stroke();
+          ctx.fillRect(x - radius * 8, y - radius * 8, radius * 16, radius * 16);
+          ctx.fillStyle = `rgba(250,251,255,${.96 + shimmer * .04})`;
+          ctx.beginPath(); ctx.arc(x, y, radius * .8, 0, TAU); ctx.fill();
+          if (strength >= 1.05) {
+            ctx.strokeStyle = `rgba(${color},.72)`; ctx.lineWidth = .75;
+            ctx.beginPath(); ctx.moveTo(x - radius * 3.4, y); ctx.lineTo(x + radius * 3.4, y);
+            ctx.moveTo(x, y - radius * 3.4); ctx.lineTo(x, y + radius * 3.4); ctx.stroke();
           }
         }
-        const name = window.QUIET_ORBIT_SCENES?.[index]?.constellation || figure.name;
-        ctx.font = `400 ${mobile ? 10 : 11}px 'Noto Sans KR', sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.shadowColor = 'rgba(2,5,15,.9)'; ctx.shadowBlur = 7;
-        ctx.fillStyle = `rgba(${color},.82)`;
-        ctx.fillText(`${name}  ·  ${figure.latin}`, cx, top + height + (mobile ? 12 : 20));
         ctx.restore();
       }
     }

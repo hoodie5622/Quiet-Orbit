@@ -18,7 +18,7 @@
     button.className = 'world';
     button.dataset.scene = index;
     button.setAttribute('aria-label', scene.title);
-    button.title = scene.title + ' · ' + scene.constellation;
+    button.title = scene.title;
     const orb = document.createElement('span');
     orb.className = 'world-orb orb-' + index;
     const label = document.createElement('span');
@@ -42,9 +42,8 @@
     $('scene-number').textContent = String(index + 1).padStart(2, '0');
     $('scene-title').textContent = scene.title;
     $('scene-description').textContent = scene.description;
-    $('constellation-name').textContent = scene.constellation;
     $('soundscape-name').textContent = scene.sound;
-    $('cosmos').setAttribute('aria-label', scene.title + ' 우주와 ' + scene.constellation);
+    $('cosmos').setAttribute('aria-label', scene.title + ' 우주와 반짝이는 별자리');
     worlds.forEach((button, i) => {
       button.classList.toggle('active', i === index);
       button.setAttribute('aria-pressed', String(i === index));
@@ -89,6 +88,7 @@
     lastTouch = 0;
     document.body.classList.toggle('immersed', value);
     $('interface').inert = value;
+    if(paused) engine.draw();
     $('toast').classList.remove('show');
     (value ? $('cosmos') : $('immerse')).focus({preventScroll:true});
   }
