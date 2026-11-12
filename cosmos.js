@@ -11,7 +11,45 @@
     { base: [3, 11, 19], low: [15, 76, 91], high: [71, 158, 154], light: [170, 235, 225], seed: 73, tilt: -.26 },
     { base: [13, 5, 18], low: [85, 28, 81], high: [185, 93, 126], light: [255, 205, 203], seed: 137, tilt: .28 },
     { base: [11, 8, 15], low: [83, 46, 45], high: [183, 115, 68], light: [255, 212, 153], seed: 224, tilt: -.15 },
-    { base: [3, 8, 23], low: [16, 47, 108], high: [70, 115, 182], light: [177, 216, 255], seed: 311, tilt: -.64 }
+    { base: [3, 8, 23], low: [16, 47, 108], high: [70, 115, 182], light: [177, 216, 255], seed: 311, tilt: -.64 },
+    { base: [9, 6, 23], low: [51, 37, 92], high: [152, 128, 194], light: [221, 207, 255], seed: 419, tilt: .12 },
+    { base: [2, 12, 24], low: [18, 71, 107], high: [105, 197, 222], light: [204, 246, 255], seed: 563, tilt: -.32 },
+    { base: [16, 7, 14], low: [94, 39, 47], high: [197, 112, 73], light: [255, 221, 171], seed: 677, tilt: .22 }
+  ];
+
+  // Artistic, normalized stick figures, not a positional sky simulator.
+  // Shape references: NASA Space Place's Star Finder (all eight patterns):
+  // https://spaceplace.nasa.gov/review/starfinder/star_finder_jan.pdf
+  // Orion's belt/hourglass: https://starchild.gsfc.nasa.gov/docs/StarChild/questions/question9.html
+  // Gemini's paired heads: https://science.nasa.gov/solar-system/skywatching/night-sky-network/gemini-constellation/
+  // Cassiopeia's W and Ursa Minor's dipper/Polaris:
+  // https://spdf.gsfc.nasa.gov/pub/documents/archived_websites/pwg.gsfc.nasa.gov/stargaze/Spolaris.htm
+  // Andromeda: https://science.nasa.gov/asset/hubble/andromeda-constellation/
+  const constellations = [
+    { name: '오리온자리', latin: 'ORION', aspect: .85,
+      points: [[.28,.17,1.5],[.72,.23,1.25],[.4,.49,1.05],[.5,.46,1.1],[.6,.43,1.05],[.3,.91,1.2],[.78,.86,1.55],[.49,.03,.8],[.07,.1,.75],[.04,.34,.7]],
+      edges: [[0,7],[7,1],[0,2],[2,3],[3,4],[4,1],[2,5],[4,6],[5,6],[0,8],[8,9]] },
+    { name: '백조자리', latin: 'CYGNUS', aspect: 1.15,
+      points: [[.48,.04,1.55],[.5,.4,1.3],[.59,.93,1.15],[.06,.53,1],[.29,.46,.9],[.74,.28,1],[.96,.16,.95]],
+      edges: [[0,1],[1,2],[3,4],[4,1],[1,5],[5,6]] },
+    { name: '거문고자리', latin: 'LYRA', aspect: .85,
+      points: [[.18,.06,1.75],[.56,.17,.8],[.36,.34,1],[.87,.46,1.1],[.72,.91,1.15],[.21,.78,1.05]],
+      edges: [[0,1],[1,2],[2,0],[2,3],[3,4],[4,5],[5,2]] },
+    { name: '사자자리', latin: 'LEO', aspect: 1.5,
+      points: [[.83,.18,1],[.66,.04,.85],[.5,.16,1.05],[.51,.37,.95],[.68,.53,1.05],[.66,.89,1.65],[.04,.72,1.2],[.25,.39,1.1]],
+      edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,3],[7,5]] },
+    { name: '안드로메다자리', latin: 'ANDROMEDA', aspect: 1.65,
+      points: [[.04,.88,1.3],[.29,.66,.85],[.55,.48,1.45],[.94,.18,1.4],[.55,.25,.9],[.46,.04,.75],[.29,.9,.75],[.57,.82,.8]],
+      edges: [[0,1],[1,2],[2,3],[2,4],[4,5],[1,6],[6,7]] },
+    { name: '카시오페이아자리', latin: 'CASSIOPEIA', aspect: 1.9,
+      points: [[.02,.12,1.1],[.24,.85,1.35],[.5,.32,1.5],[.75,.79,1.15],[.98,.05,1.05]],
+      edges: [[0,1],[1,2],[2,3],[3,4]] },
+    { name: '작은곰자리', latin: 'URSA MINOR', aspect: 1.5,
+      points: [[.02,.03,1.6],[.25,.18,.9],[.48,.28,.9],[.68,.42,1.1],[.93,.4,1.2],[.98,.82,1.4],[.71,.92,1.15]],
+      edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]] },
+    { name: '쌍둥이자리', latin: 'GEMINI', aspect: 1.12,
+      points: [[.25,.05,1.45],[.69,.1,1.65],[.28,.33,1.05],[.63,.39,1.1],[.2,.65,.9],[.56,.69,1.05],[.02,.92,1.05],[.38,.96,1.05],[.55,.94,.95],[.89,.87,1.1],[.05,.4,.8],[.9,.46,.85]],
+      edges: [[0,2],[1,3],[2,3],[2,4],[3,5],[4,6],[4,7],[5,8],[5,9],[2,10],[3,11]] }
   ];
 
   function random(seed) {
@@ -63,12 +101,16 @@
         for (let n = 0; n < grids.length; n++) f += noise(grids[n], u, v) * weights[n];
         const warp = noise(grids[1], u, v);
         const ribbon = v - (.53 + p.tilt * (u - .5) + (warp - .5) * .38);
-        const band = Math.exp(-ribbon * ribbon * 17);
+        let band = Math.exp(-ribbon * ribbon * 17);
+        if (index === 2) band = .32 + .65 * Math.exp(-((u - .64) ** 2 * 4 + (v - .52) ** 2 * 7));
+        if (index === 1 || index === 4 || index === 5 || index === 7) band *= .5;
+        if (index === 6) band = .32 + .6 * Math.exp(-((u - .6) ** 2 * 5 + (v - .5) ** 2 * 8));
         const rightCloud = Math.exp(-((u - .7) ** 2 * 5 + (v - .38) ** 2 * 3));
         const islands = Math.max(0, f - .29) * 2.3;
         const density = clamp(islands * band * (.38 + rightCloud * .8), 0, 1);
         const wisps = Math.max(0, noise(grids[3], u, v) - .42) * density;
-        const hot = clamp((f - .49) * 3.2 + wisps * .8, 0, 1);
+        const ice = index === 6 ? Math.pow(1 - Math.abs(noise(grids[2], u, v) * 2 - 1), 9) * .35 : 0;
+        const hot = clamp((f - .49) * 3.2 + wisps * .8 + ice, 0, 1);
         const darkLane = 1 - clamp((noise(grids[2], u, v) - .53) * 3.4, 0, .8);
         const opacity = density * darkLane;
         const grain = (rng() - .5) * 2.2;
@@ -97,8 +139,46 @@
     }
     ctx.globalCompositeOperation = 'source-over';
 
+    if (index === 1) {
+      // Thin vertical folds, rather than a recolored cloud, make an auroral curtain.
+      ctx.globalCompositeOperation = 'screen';
+      for (let n = 0; n < 260; n++) {
+        const u = n / 259;
+        const x = (u * .96 + .02) * w;
+        const top = (.2 + Math.sin(u * 7.2) * .09 + Math.sin(u * 17) * .026) * h;
+        const bottom = top + (.13 + Math.sin(u * 5.6 + .3) ** 2 * .32) * h;
+        const bend = Math.sin(u * 9) * w * .045;
+        const curtain = ctx.createLinearGradient(x, top, x, bottom);
+        curtain.addColorStop(0, 'rgba(147,252,216,.28)');
+        curtain.addColorStop(.22, 'rgba(55,214,169,.18)');
+        curtain.addColorStop(.65, 'rgba(50,139,173,.07)');
+        curtain.addColorStop(1, 'rgba(110,86,189,0)');
+        ctx.strokeStyle = curtain;
+        ctx.lineWidth = 2.8 + Math.sin(u * 61) * 1.7;
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.bezierCurveTo(x - bend, top + 35, x + bend * .6, bottom - 45, x + bend, bottom);
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    if (index === 2) {
+      ctx.globalCompositeOperation = 'screen';
+      for (let n = 0; n < 160; n++) {
+        const a = rng() * TAU, radius = Math.sqrt(rng());
+        const x = w * (.6 + Math.cos(a) * radius * .4);
+        const y = h * (.52 + Math.sin(a) * radius * .29);
+        ctx.globalAlpha = .08 + rng() * .2;
+        ctx.fillStyle = rng() > .6 ? '#e9bea7' : '#cc86ab';
+        ctx.beginPath(); ctx.arc(x, y, .4 + rng() * 1.5, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
     if (index === 3) {
-      const x = w * .73, y = h * .45, r = h * .18;
+      const x = w * .64, y = h * .47, r = h * .15;
       let glow = ctx.createRadialGradient(x, y, r * .86, x, y, r * 1.8);
       glow.addColorStop(0, 'rgba(255,205,132,0)');
       glow.addColorStop(.15, 'rgba(255,198,124,.46)');
@@ -115,6 +195,105 @@
       ctx.beginPath();
       ctx.arc(x, y, r, 0, TAU);
       ctx.fill();
+    }
+
+    if (index === 4) {
+      // Logarithmic arms, tilted into a luminous blue spiral galaxy.
+      const puff = canvasOf(40, 40), pc = puff.getContext('2d');
+      const pg = pc.createRadialGradient(20, 20, 0, 20, 20, 20);
+      pg.addColorStop(0, 'rgba(178,217,255,.85)');
+      pg.addColorStop(.25, 'rgba(92,153,231,.27)');
+      pg.addColorStop(1, 'rgba(39,81,169,0)');
+      pc.fillStyle = pg; pc.fillRect(0, 0, 40, 40);
+      ctx.save();
+      ctx.translate(w * .59, h * .5);
+      ctx.rotate(-.32); ctx.scale(1, .6);
+      ctx.globalCompositeOperation = 'screen';
+      const radius = w * .35;
+      for (let n = 0; n < 3000; n++) {
+        const r = Math.sqrt(rng()) * radius;
+        const arm = n % 3 / 3 * TAU;
+        const angle = arm + Math.log(r / radius + .045) * 3.25 + (rng() - .5) * (.32 + r / radius * .2);
+        const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+        const size = 3 + rng() * 14;
+        ctx.globalAlpha = (.05 + rng() * .23) * (1 - r / radius * .65);
+        ctx.drawImage(puff, x - size, y - size, size * 2, size * 2);
+      }
+      ctx.globalAlpha = 1;
+      const core = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * .38);
+      core.addColorStop(0, 'rgba(231,239,255,.92)');
+      core.addColorStop(.13, 'rgba(185,210,255,.65)');
+      core.addColorStop(.42, 'rgba(112,157,229,.19)');
+      core.addColorStop(1, 'rgba(49,87,174,0)');
+      ctx.fillStyle = core; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+      ctx.restore();
+    }
+
+    if (index === 5) {
+      const x = w * .64, y = h * .48, r = h * .112;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-.36);
+      const haze = ctx.createRadialGradient(0, 0, r * .7, 0, 0, r * 3.2);
+      haze.addColorStop(0, 'rgba(184,148,237,.13)'); haze.addColorStop(1, 'rgba(104,79,168,0)');
+      ctx.fillStyle = haze; ctx.fillRect(-r * 3.3, -r * 3.3, r * 6.6, r * 6.6);
+      for (let n = 0; n < 27; n++) {
+        ctx.strokeStyle = `rgba(200,180,238,${.055 + Math.sin(n * 1.8) ** 2 * .15})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.ellipse(0, 0, r * (1.52 + n * .025), r * (.42 + n * .008), 0, 0, TAU); ctx.stroke();
+      }
+      const planet = ctx.createRadialGradient(-r * .36, -r * .36, 0, 0, 0, r);
+      planet.addColorStop(0, '#c7b0df'); planet.addColorStop(.34, '#8c78b2');
+      planet.addColorStop(.7, '#403753'); planet.addColorStop(1, '#111222');
+      ctx.fillStyle = planet; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.clip();
+      ctx.strokeStyle = 'rgba(228,207,245,.12)'; ctx.lineWidth = 4;
+      for (let n = -4; n < 5; n++) {
+        ctx.beginPath(); ctx.ellipse(0, n * r * .21, r * 1.15, r * .24, 0, 0, Math.PI); ctx.stroke();
+      }
+      ctx.restore();
+      for (let n = 0; n < 27; n++) {
+        ctx.strokeStyle = `rgba(221,202,249,${.08 + Math.sin(n * 1.8) ** 2 * .18})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.ellipse(0, 0, r * (1.52 + n * .025), r * (.42 + n * .008), 0, 0, Math.PI); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    if (index === 6) {
+      // Translucent facets sit within ridged ice-blue clouds.
+      ctx.globalCompositeOperation = 'screen';
+      for (let n = 0; n < 34; n++) {
+        const x = w * (.22 + rng() * .74), y = h * (.15 + rng() * .7);
+        const radius = 16 + rng() * 58;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(-.5 + rng() * .8);
+        ctx.beginPath(); ctx.moveTo(0, -radius);
+        ctx.lineTo(radius * .35, -radius * .25); ctx.lineTo(radius * .27, radius * .62);
+        ctx.lineTo(0, radius); ctx.lineTo(-radius * .3, radius * .2); ctx.lineTo(-radius * .25, -radius * .55); ctx.closePath();
+        const crystal = ctx.createLinearGradient(-radius, -radius, radius, radius);
+        crystal.addColorStop(0, 'rgba(175,244,255,.1)'); crystal.addColorStop(.48, 'rgba(94,180,224,.015)');
+        crystal.addColorStop(.52, 'rgba(192,247,255,.11)'); crystal.addColorStop(1, 'rgba(67,138,195,.01)');
+        ctx.fillStyle = crystal; ctx.fill();
+        ctx.strokeStyle = 'rgba(180,233,255,.12)'; ctx.lineWidth = .65; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -radius); ctx.lineTo(0, radius); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    if (index === 7) {
+      ctx.globalCompositeOperation = 'screen';
+      [[w * .56, h * .52, 15, [255,204,140]], [w * .69, h * .61, 10, [255,165,116]]].forEach(([x, y, radius, color]) => {
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 12);
+        halo.addColorStop(0, 'rgba(255,247,217,.95)');
+        halo.addColorStop(.055, `rgba(${color.join(',')},.95)`);
+        halo.addColorStop(.13, `rgba(${color.join(',')},.32)`);
+        halo.addColorStop(.4, `rgba(${color.join(',')},.075)`);
+        halo.addColorStop(1, 'rgba(154,65,52,0)');
+        ctx.fillStyle = halo; ctx.fillRect(x - radius * 12, y - radius * 12, radius * 24, radius * 24);
+        ctx.fillStyle = '#fff1cf'; ctx.beginPath(); ctx.arc(x, y, radius * .3, 0, TAU); ctx.fill();
+        ctx.strokeStyle = `rgba(${color.join(',')},.22)`; ctx.lineWidth = .65;
+        ctx.beginPath(); ctx.moveTo(x - radius * 4, y); ctx.lineTo(x + radius * 4, y); ctx.stroke();
+      });
+      ctx.globalCompositeOperation = 'source-over';
     }
     return c;
   }
@@ -137,6 +316,8 @@
       this.lastDraw = 0;
       this.raf = 0;
       this.transition = 1;
+      this.constellationFrom = new Float32Array(palettes.length);
+      this.constellationFrom[0] = 1;
       this.textures = new Map();
       this.background = this.getTexture(0);
       this.oldBackground = null;
@@ -224,6 +405,10 @@
       index = ((Math.trunc(Number(index) || 0) % palettes.length) + palettes.length) % palettes.length;
       this.lastInteraction = performance.now();
       if (index === this.sceneIndex) return;
+      const blend = ease(this.transition);
+      for (let i = 0; i < this.constellationFrom.length; i++) {
+        this.constellationFrom[i] = this.constellationFrom[i] * (1 - blend) + (i === this.sceneIndex ? blend : 0);
+      }
       if (this.transition < 1 && this.oldBackground) {
         const snapshot = canvasOf(this.background.width, this.background.height);
         const context = snapshot.getContext('2d');
@@ -330,8 +515,78 @@
         ctx.translate(-this.pointer.x * 9, -this.pointer.y * 7);
         ctx.rotate(Math.sin(this.rotation * .24) * .08);
       }
-      ctx.drawImage(texture, -texture.width * cover / 2, -texture.height * cover / 2, texture.width * cover, texture.height * cover);
+      const focusX = w <= 700 ? .62 : .5;
+      ctx.drawImage(texture, -texture.width * cover * focusX, -texture.height * cover / 2, texture.width * cover, texture.height * cover);
       ctx.restore();
+    }
+
+    drawConstellations() {
+      const ctx = this.ctx, w = this.width, h = this.height;
+      const mobile = w <= 700;
+      const immersed = document.body?.classList.contains('immersed');
+      let cx = w * .82, cy = h * .235;
+      let maxWidth = Math.min(220, w * .18), maxHeight = Math.min(178, h * .22);
+      if (mobile) {
+        cx = w * .5;
+        cy = h >= 760 ? clamp(h * .175, 146, 163) : 108;
+        maxWidth = Math.min(190, w * .52);
+        maxHeight = h >= 760 ? 80 : 56;
+      }
+      if (immersed) {
+        cx = w * (mobile ? .5 : .76); cy = h * .38;
+        maxWidth = Math.min(mobile ? 270 : 370, w * .65);
+        maxHeight = Math.min(290, h * .32);
+      }
+      const motion = this.reducedMotion ? 0 : 1;
+      cx -= this.pointer.x * 6 * motion;
+      cy -= this.pointer.y * 4 * motion;
+      const blend = ease(this.transition);
+      for (let index = 0; index < constellations.length; index++) {
+        const opacity = this.constellationFrom[index] * (1 - blend) + (index === this.sceneIndex ? blend : 0);
+        if (opacity < .003) continue;
+        const figure = constellations[index];
+        const height = Math.min(maxHeight, maxWidth / figure.aspect), width = height * figure.aspect;
+        const left = cx - width / 2, top = cy - height / 2;
+        const color = palettes[index].light.join(',');
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = `rgba(${color},.39)`;
+        ctx.lineWidth = mobile ? .7 : .85;
+        ctx.beginPath();
+        for (const [a, b] of figure.edges) {
+          ctx.moveTo(left + figure.points[a][0] * width, top + figure.points[a][1] * height);
+          ctx.lineTo(left + figure.points[b][0] * width, top + figure.points[b][1] * height);
+        }
+        ctx.stroke();
+        for (let i = 0; i < figure.points.length; i++) {
+          const [u, v, strength] = figure.points[i];
+          const x = left + u * width, y = top + v * height;
+          const shimmer = .85 + Math.sin(this.time * .55 + i * 1.7) * .15;
+          const radius = (mobile ? 1.35 : 1.7) * strength;
+          const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 6);
+          halo.addColorStop(0, `rgba(${color},${.65 * shimmer})`);
+          halo.addColorStop(.2, `rgba(${color},${.2 * shimmer})`);
+          halo.addColorStop(1, `rgba(${color},0)`);
+          ctx.fillStyle = halo;
+          ctx.fillRect(x - radius * 6, y - radius * 6, radius * 12, radius * 12);
+          ctx.fillStyle = `rgba(244,246,255,${.82 + shimmer * .18})`;
+          ctx.beginPath(); ctx.arc(x, y, radius * .66, 0, TAU); ctx.fill();
+          if (strength >= 1.4) {
+            ctx.strokeStyle = `rgba(${color},.5)`; ctx.lineWidth = .55;
+            ctx.beginPath(); ctx.moveTo(x - radius * 2.9, y); ctx.lineTo(x + radius * 2.9, y);
+            ctx.moveTo(x, y - radius * 2.9); ctx.lineTo(x, y + radius * 2.9); ctx.stroke();
+          }
+        }
+        const name = window.QUIET_ORBIT_SCENES?.[index]?.constellation || figure.name;
+        ctx.font = `400 ${mobile ? 10 : 11}px 'Noto Sans KR', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(2,5,15,.9)'; ctx.shadowBlur = 7;
+        ctx.fillStyle = `rgba(${color},.82)`;
+        ctx.fillText(`${name}  ·  ${figure.latin}`, cx, top + height + (mobile ? 12 : 20));
+        ctx.restore();
+      }
     }
 
     draw() {
@@ -435,6 +690,7 @@
       vignette.addColorStop(1, 'rgba(1,3,12,.65)');
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, w, h);
+      this.drawConstellations();
     }
 
     destroy() {
